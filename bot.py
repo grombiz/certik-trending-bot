@@ -43,3 +43,4 @@ while True:
     schedule.run_pending()
     time.sleep(60)
 send_daily_report()
+# v1.0 working release
