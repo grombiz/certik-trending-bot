@@ -42,3 +42,4 @@ schedule.every().day.at("09:00").do(send_daily_report)
 while True:
     schedule.run_pending()
     time.sleep(60)
+send_daily_report()
