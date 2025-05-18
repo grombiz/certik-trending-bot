@@ -1,4 +1,3 @@
-
 import requests
 from bs4 import BeautifulSoup
 from telegram import Bot
@@ -31,15 +30,13 @@ def get_trending_projects():
 def send_daily_report():
     print("📡 Fetching CertiK trending projects...")
     try:
-        message = "🔥 *Top 10 Trending Projects on CertiK Skynet:*
-
-" + get_trending_projects()
+        message = "🔥 *Top 10 Trending Projects on CertiK Skynet:*\n\n" + get_trending_projects()
         bot.send_message(chat_id=CHANNEL_USERNAME, text=message, parse_mode="Markdown")
         print("✅ Sent to Telegram")
     except Exception as e:
         print(f"❌ Failed to send message: {e}")
 
-# 🔁 Каждый день в 09:00 по серверному времени
+# 🔁 Каждый день в 09:00 по времени Render (UTC)
 schedule.every().day.at("09:00").do(send_daily_report)
 
 while True:
