@@ -25,7 +25,7 @@ def get_trending_projects():
     return '\n'.join([f"{i+1}. {p}" for i, p in enumerate(projects)])
 
 def send_to_telegram(text):
-    bot = Bot(token=8162237917:AAHfqZuXZfJ5ysQX3qywQ5HTz1XleP8DcvU)
+    bot = Bot(token=BOT_TOKEN)
     bot.send_message(chat_id=CHANNEL_USERNAME, text=text)
 
 def job():
