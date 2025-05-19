@@ -36,19 +36,13 @@ def send_daily_report():
     except Exception as e:
         print(f"❌ Failed to send message: {e}")
 
-# 🔁 Каждый день в 09:00 по времени Render (UTC)
+# 🔁 Расписание: каждый день в 09:00 по UTC
 schedule.every().day.at("09:00").do(send_daily_report)
 
+# 🧪 Временный ручной запуск для проверки (можно удалить позже)
+send_daily_report()
+
+# 🔄 Основной бесконечный цикл
 while True:
     schedule.run_pending()
     time.sleep(60)
-send_daily_report()
-schedule.every().day.at("09:00").do(send_daily_report)
-
-# 🔽 Временный ручной запуск
-send_daily_report()
-
-while True:
-    schedule.run_pending()
-    time.sleep(60)
-
