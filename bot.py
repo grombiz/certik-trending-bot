@@ -1,11 +1,8 @@
 import requests
-from bs4 import BeautifulSoup
 from telegram import Bot
 import schedule
 import time
 import os
-import json
-import re
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_USERNAME = "@top10trendingprojects"
@@ -16,29 +13,22 @@ bot = Bot(token=BOT_TOKEN)
 def get_trending_projects():
     url = (
         f"https://api.zenrows.com/v1/?apikey={ZENROWS_KEY}"
-        f"&url=https://skynet.certik.com/leaderboards/trending&js_render=true"
+        f"&url=https://skynet.certik.com/api/leaderboards/trending"
+        f"&js_render=true&premium_proxy=true"
     )
 
     try:
         response = requests.get(url)
         print(f"🔍 ZenRows status: {response.status_code}")
-        html = response.text
-
-        # Извлекаем window.__NUXT__ = {...}
-        match = re.search(r"window\.__NUXT__=(\{.*?\})</script>", html, re.DOTALL)
-        if not match:
-            print("❌ Не найден window.__NUXT__ блок")
-            return "⚠️ CertiK не вернул встроенные данные. Структура могла измениться."
-
-        nuxt_data = json.loads(match.group(1))
-        projects = nuxt_data["data"][0]["leaderboard"]
-        print(f"🔎 Извлечено проектов: {len(projects)}")
+        data = response.json()
+        projects = data.get("data", [])[:10]
+        print(f"🔎 Получено проектов: {len(projects)}")
     except Exception as e:
-        print(f"❌ Ошибка при извлечении JSON из DOM: {e}")
-        return "⚠️ CertiK не вернул проекты."
+        print(f"❌ Ошибка при парсинге JSON: {e}")
+        return "⚠️ CertiK API вернул некорректный ответ."
 
     output = []
-    for i, project in enumerate(projects[:10]):
+    for i, project in enumerate(projects):
         try:
             name = project.get("name", "Unknown")
             score = project.get("security_score", "?")
@@ -51,18 +41,16 @@ def get_trending_projects():
     return "\n".join(output)
 
 def send_daily_report():
-    print("📡 Получаю проекты с CertiK через ZenRows...")
+    print("📡 Получаю проекты через ZenRows JSON API...")
     try:
         message = "🔥 *Top 10 Trending Projects on CertiK Skynet:*\n\n" + get_trending_projects()
         bot.send_message(chat_id=CHANNEL_USERNAME, text=message, parse_mode="Markdown")
         print("✅ Отправлено в Telegram")
     except Exception as e:
-        print(f"❌ Ошибка при отправке в Telegram: {e}")
+        print(f"❌ Ошибка отправки: {e}")
 
-# Ежедневно в 09:00 UTC
+# Периодический запуск
 schedule.every().day.at("09:00").do(send_daily_report)
-
-# Ручной тест
 send_daily_report()
 
 while True:
