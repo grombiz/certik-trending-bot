@@ -4,6 +4,7 @@ import schedule
 import time
 import os
 
+# Переменные окружения
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_USERNAME = "@top10trendingprojects"
 ZENROWS_KEY = "10c4e0d5c0b7bdfe0cc22cabd16fe9a22d62ba94"
@@ -12,30 +13,26 @@ bot = Bot(token=BOT_TOKEN)
 client = ZenRowsClient(ZENROWS_KEY)
 
 def get_trending_projects():
+    url = "https://skynet.certik.com/api/leaderboards/trending"
+    params = {
+        "js_render": "true",
+        "premium_proxy": "true"
+    }
+
     try:
-        url = "https://skynet.certik.com/api/leaderboards/trending"
-        params = {
-            "js_render": "true",
-            "premium_proxy": "true"
-        }
-
         response = client.get(url, params=params)
-print(f"🔍 ZenRows status: {response.status_code}")
-print("📦 Response preview:", response.text[:500])
+        print(f"🔍 ZenRows status: {response.status_code}")
+        print("📦 Response preview:", response.text[:500])
 
-try:
-    data = response.json()
-    projects = data.get("data", [])[:10]
-    print(f"🔎 Найдено проектов: {len(projects)}")
-except Exception as e:
-    print(f"❌ Ошибка парсинга JSON: {e}")
-    return "⚠️ Ответ от CertiK не разобрался как JSON."
-
+        data = response.json()
+        projects = data.get("data", [])[:10]
+        print(f"🔎 Найдено проектов: {len(projects)}")
 
     except Exception as e:
-        print(f"❌ Ошибка парсинга JSON от ZenRows: {e}")
-        return "⚠️ CertiK не дал проектов (ошибка запроса)."
+        print(f"❌ Ошибка парсинга или запроса: {e}")
+        return "⚠️ CertiK не вернул встроенные данные. Структура могла измениться."
 
+    # Формирование текста
     result = []
     for i, project in enumerate(projects):
         try:
@@ -44,10 +41,10 @@ except Exception as e:
             kyc = "✅" if project.get("kyc", {}).get("status") == "Approved" else "❌"
             result.append(f"{i+1}. {name} – Trust: {score} – KYC: {kyc}")
         except Exception as e:
-            print(f"⚠️ Ошибка проекта #{i+1}: {e}")
+            print(f"⚠️ Ошибка в проекте #{i+1}: {e}")
             continue
 
-    return "\n".join(result)
+    return "\n".join(result) if result else "⚠️ CertiK не вернул проектов (вёрстка могла измениться)."
 
 def send_daily_report():
     print("📡 Получаю проекты через ZenRows SDK...")
@@ -56,11 +53,12 @@ def send_daily_report():
         bot.send_message(chat_id=CHANNEL_USERNAME, text=message, parse_mode="Markdown")
         print("✅ Отправлено в канал")
     except Exception as e:
-        print(f"❌ Ошибка при отправке: {e}")
+        print(f"❌ Ошибка при отправке в Telegram: {e}")
 
+# Запланированный запуск + ручной
 schedule.every().day.at("09:00").do(send_daily_report)
 
-# Ручной запуск
+# Для ручной отладки сразу шлём
 send_daily_report()
 
 while True:
