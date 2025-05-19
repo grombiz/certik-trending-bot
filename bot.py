@@ -20,10 +20,17 @@ def get_trending_projects():
         }
 
         response = client.get(url, params=params)
-        print(f"🔍 ZenRows status: {response.status_code}")
-        data = response.json()
-        projects = data.get("data", [])[:10]
-        print(f"🔎 Найдено проектов: {len(projects)}")
+print(f"🔍 ZenRows status: {response.status_code}")
+print("📦 Response preview:", response.text[:500])
+
+try:
+    data = response.json()
+    projects = data.get("data", [])[:10]
+    print(f"🔎 Найдено проектов: {len(projects)}")
+except Exception as e:
+    print(f"❌ Ошибка парсинга JSON: {e}")
+    return "⚠️ Ответ от CertiK не разобрался как JSON."
+
 
     except Exception as e:
         print(f"❌ Ошибка парсинга JSON от ZenRows: {e}")
