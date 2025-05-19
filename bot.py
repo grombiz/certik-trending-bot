@@ -10,7 +10,7 @@ CHANNEL_USERNAME = "@top10trendingprojects"
 bot = Bot(token=BOT_TOKEN)
 
 def get_trending_projects():
-    url = "https://skynet.certik.com/api/v1/projects?sort=trend"
+    url = "https://skynet.certik.com/api/leaderboards/trending"
     headers = {
         "User-Agent": "Mozilla/5.0",
         "Accept": "application/json"
@@ -19,9 +19,7 @@ def get_trending_projects():
     try:
         response = requests.get(url, headers=headers)
         print(f"🔍 Response status: {response.status_code}")
-        print("📄 Response text (first 500 chars):")
-        print(response.text[:500])  # покажет в Render логе что пришло
-
+        print("📄 Preview JSON:", response.text[:300])
         data = response.json()
     except Exception as e:
         print(f"❌ JSON decode error: {e}")
@@ -55,6 +53,7 @@ schedule.every().day.at("09:00").do(send_daily_report)
 # Тестовая отправка
 send_daily_report()
 
+# Цикл
 while True:
     schedule.run_pending()
     time.sleep(60)
