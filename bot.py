@@ -4,7 +4,6 @@ import schedule
 import time
 import os
 
-# Получаем токен из переменной окружения
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_USERNAME = "@top10trendingprojects"
 
@@ -19,6 +18,10 @@ def get_trending_projects():
 
     try:
         response = requests.get(url, headers=headers)
+        print(f"🔍 Response status: {response.status_code}")
+        print("📄 Response text (first 500 chars):")
+        print(response.text[:500])  # покажет в Render логе что пришло
+
         data = response.json()
     except Exception as e:
         print(f"❌ JSON decode error: {e}")
@@ -33,7 +36,7 @@ def get_trending_projects():
         projects.append(f"{i+1}. {name} – Trust: {score} – KYC: {kyc}")
 
     if not projects:
-        return "⚠️ CertiK API вернул пустой список проектов."
+        return "⚠️ CertiK API вернул пустой список."
 
     return "\n".join(projects)
 
@@ -46,13 +49,12 @@ def send_daily_report():
     except Exception as e:
         print(f"❌ Failed to send message: {e}")
 
-# 📅 Ежедневно в 09:00 (UTC)
+# Ежедневно в 09:00 UTC
 schedule.every().day.at("09:00").do(send_daily_report)
 
-# 🧪 Ручной запуск (убери позже)
+# Тестовая отправка
 send_daily_report()
 
-# 🔄 Основной цикл
 while True:
     schedule.run_pending()
     time.sleep(60)
