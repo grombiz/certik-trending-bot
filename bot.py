@@ -11,11 +11,14 @@ CHANNEL_USERNAME = "@top10trendingprojects"
 bot = Bot(token=BOT_TOKEN)
 
 def get_trending_projects():
-    url = "https://skynet.certik.com/api/projects?trend=1&limit=10"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    response = requests.get(url, headers=headers)
-    
+    url = "https://skynet.certik.com/api/v1/projects?sort=trend"
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "application/json"
+    }
+
     try:
+        response = requests.get(url, headers=headers)
         data = response.json()
     except Exception as e:
         print(f"❌ JSON decode error: {e}")
@@ -23,14 +26,14 @@ def get_trending_projects():
 
     projects = []
 
-    for i, project in enumerate(data.get("data", [])):
+    for i, project in enumerate(data.get("data", [])[:10]):
         name = project.get("name", "Unknown")
         score = project.get("security_score", "?")
         kyc = "✅" if project.get("kyc", {}).get("status") == "Approved" else "❌"
         projects.append(f"{i+1}. {name} – Trust: {score} – KYC: {kyc}")
 
     if not projects:
-        return "⚠️ Не удалось получить проекты. CertiK API вернул пустой список."
+        return "⚠️ CertiK API вернул пустой список проектов."
 
     return "\n".join(projects)
 
@@ -43,13 +46,13 @@ def send_daily_report():
     except Exception as e:
         print(f"❌ Failed to send message: {e}")
 
-# Расписание: каждый день в 09:00 (UTC)
+# 📅 Ежедневно в 09:00 (UTC)
 schedule.every().day.at("09:00").do(send_daily_report)
 
-# Временный ручной запуск (можно убрать после проверки)
+# 🧪 Ручной запуск (убери позже)
 send_daily_report()
 
-# Цикл
+# 🔄 Основной цикл
 while True:
     schedule.run_pending()
     time.sleep(60)
