@@ -4,6 +4,8 @@ from telegram import Bot
 import schedule
 import time
 import os
+import json
+import re
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_USERNAME = "@top10trendingprojects"
@@ -16,37 +18,37 @@ def get_trending_projects():
         f"https://api.zenrows.com/v1/?apikey={ZENROWS_KEY}"
         f"&url=https://skynet.certik.com/leaderboards/trending&js_render=true"
     )
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-    }
 
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url)
         print(f"🔍 ZenRows status: {response.status_code}")
-        soup = BeautifulSoup(response.text, 'html.parser')
-        cards = soup.select('div.table-row')
-        print(f"🔎 Найдено карточек: {len(cards)}")
+        html = response.text
+
+        # Извлекаем window.__NUXT__ = {...}
+        match = re.search(r"window\.__NUXT__=(\{.*?\})</script>", html, re.DOTALL)
+        if not match:
+            print("❌ Не найден window.__NUXT__ блок")
+            return "⚠️ CertiK не вернул встроенные данные. Структура могла измениться."
+
+        nuxt_data = json.loads(match.group(1))
+        projects = nuxt_data["data"][0]["leaderboard"]
+        print(f"🔎 Извлечено проектов: {len(projects)}")
     except Exception as e:
-        print(f"❌ Ошибка парсинга ZenRows: {e}")
-        return "⚠️ Не удалось получить проекты с CertiK."
+        print(f"❌ Ошибка при извлечении JSON из DOM: {e}")
+        return "⚠️ CertiK не вернул проекты."
 
-    projects = []
-
-    for i, card in enumerate(cards[:10]):
+    output = []
+    for i, project in enumerate(projects[:10]):
         try:
-            name = card.select_one('a').text.strip()
-            score_tag = card.select_one('.trust-score')
-            score = score_tag.text.strip() if score_tag else "?"
-            kyc = "✅" if 'kyc' in card.text.lower() else "❌"
-            projects.append(f"{i+1}. {name} – Trust: {score} – KYC: {kyc}")
+            name = project.get("name", "Unknown")
+            score = project.get("security_score", "?")
+            kyc = "✅" if project.get("kyc", {}).get("status") == "Approved" else "❌"
+            output.append(f"{i+1}. {name} – Trust: {score} – KYC: {kyc}")
         except Exception as e:
-            print(f"⚠️ Ошибка в карточке #{i+1}: {e}")
+            print(f"⚠️ Ошибка в проекте #{i+1}: {e}")
             continue
 
-    if not projects:
-        return "⚠️ CertiK не вернул проектов. Структура могла измениться."
-
-    return "\n".join(projects)
+    return "\n".join(output)
 
 def send_daily_report():
     print("📡 Получаю проекты с CertiK через ZenRows...")
@@ -60,10 +62,9 @@ def send_daily_report():
 # Ежедневно в 09:00 UTC
 schedule.every().day.at("09:00").do(send_daily_report)
 
-# Ручной запуск (удалишь позже)
+# Ручной тест
 send_daily_report()
 
-# Основной цикл
 while True:
     schedule.run_pending()
     time.sleep(60)
