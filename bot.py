@@ -1,8 +1,9 @@
 import requests
-from telegram import Bot
 import schedule
 import time
+import random
 import os
+from telegram import Bot
 
 # Конфигурация
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -52,26 +53,35 @@ def get_trending_projects():
         return "\n".join(result)
 
     except Exception as e:
-        return f"⚠️ Ошибка получения данных от CoinGecko: {e}"
+        return f"⚠️ Error fetching data from CoinGecko: {e}"
 
 def send_daily_report():
     now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    print(f"[{now}] 📡 Получаю CoinGecko тренды...")
-    try:
-        message = "🔥 *Top Trending Coins on CoinGecko:*\n\n" + get_trending_projects()
-        bot.send_message(chat_id=CHANNEL_USERNAME, text=message, parse_mode="Markdown")
-        print(f"[{now}] ✅ Сообщение отправлено")
-    except Exception as e:
-        print(f"[{now}] ❌ Ошибка отправки: {e}")
+    print(f"[{now}] 📡 Fetching CoinGecko trends...")
 
-# Планировщик по UTC: 06:00 и 18:00 → 08:00 и 20:00 по Брюсселю
+    try:
+        headers = [
+            "📊 *Top 7 trending altcoins worth watching today:*",
+            "🚀 *Looking for momentum? These altcoins are on fire:*",
+            "🔍 *Most searched tokens on CoinGecko — updated every 12h:*",
+            "💡 *Curious what's hot in crypto? Here's the list:*",
+            "🔥 *Daily trend check — posted every 12 hours:*"
+        ]
+        intro = random.choice(headers)
+        message = f"{intro}\n\n{get_trending_projects()}"
+        bot.send_message(chat_id=CHANNEL_USERNAME, text=message, parse_mode="Markdown")
+        print(f"[{now}] ✅ Sent to Telegram")
+
+    except Exception as e:
+        print(f"[{now}] ❌ Telegram send error: {e}")
+
+# Планировщик по UTC (06:00 и 18:00 = 08:00 и 20:00 Brussels)
 schedule.every().day.at("06:00").do(send_daily_report)
 schedule.every().day.at("18:00").do(send_daily_report)
 
-# Точка входа
+# Тест при запуске
 if __name__ == "__main__":
-    send_daily_report()  # Тестовая отправка при старте
-
+    send_daily_report()
     while True:
         schedule.run_pending()
         time.sleep(60)
