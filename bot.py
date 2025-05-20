@@ -71,3 +71,5 @@ schedule.every().day.at("18:00").do(send_daily_report)  # 20:00 Brussels
 while True:
     schedule.run_pending()
     time.sleep(60)
+if __name__ == "__main__":
+    send_daily_report()
