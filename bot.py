@@ -55,21 +55,23 @@ def get_trending_projects():
         return f"⚠️ Ошибка получения данных от CoinGecko: {e}"
 
 def send_daily_report():
-    print("📡 Получаю CoinGecko тренды...")
+    now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+    print(f"[{now}] 📡 Получаю CoinGecko тренды...")
     try:
         message = "🔥 *Top Trending Coins on CoinGecko:*\n\n" + get_trending_projects()
         bot.send_message(chat_id=CHANNEL_USERNAME, text=message, parse_mode="Markdown")
-        print("✅ Сообщение отправлено")
+        print(f"[{now}] ✅ Сообщение отправлено")
     except Exception as e:
-        print(f"❌ Ошибка отправки: {e}")
+        print(f"[{now}] ❌ Ошибка отправки: {e}")
 
-# 🕗 Публикации дважды в день по Брюсселю
-schedule.every().day.at("06:00").do(send_daily_report)  # 08:00 Brussels
-schedule.every().day.at("18:00").do(send_daily_report)  # 20:00 Brussels
+# Планировщик по UTC: 06:00 и 18:00 → 08:00 и 20:00 по Брюсселю
+schedule.every().day.at("06:00").do(send_daily_report)
+schedule.every().day.at("18:00").do(send_daily_report)
 
-# 🔁 Основной цикл
-while True:
-    schedule.run_pending()
-    time.sleep(60)
+# Точка входа
 if __name__ == "__main__":
-    send_daily_report()
+    send_daily_report()  # Тестовая отправка при старте
+
+    while True:
+        schedule.run_pending()
+        time.sleep(60)
