@@ -6,7 +6,7 @@ import os
 
 # Конфигурация
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHANNEL_USERNAME = "@top10trendingprojects"
+CHANNEL_USERNAME = "@toptrendingprojects"
 bot = Bot(token=BOT_TOKEN)
 
 def get_trending_projects():
