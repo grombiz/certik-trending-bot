@@ -39,11 +39,16 @@ def get_trending_projects():
             try:
                 detail_url = f"https://api.coingecko.com/api/v3/coins/{coin_id}"
                 detail_data = requests.get(detail_url, timeout=10).json()
-                raw_desc = detail_data.get("description", {}).get("en", "")
-                short_desc = raw_desc.strip().split(". ")[0][:160]
-                descriptions[coin_id] = short_desc if short_desc else "No description available."
+                raw_desc = detail_data.get("description", {}).get("en", "").strip()
+
+                first_sentence = raw_desc.split(". ")[0].strip()
+                short_desc = (first_sentence + ".") if first_sentence else "Too early to say – DYOR 🔍"
+                if len(short_desc) > 160:
+                    short_desc = short_desc[:157] + "..."
+                descriptions[coin_id] = short_desc
+
             except:
-                descriptions[coin_id] = "No description available."
+                descriptions[coin_id] = "Too early to say – DYOR 🔍"
 
         result = []
         for i, coin in enumerate(trending_data):
@@ -53,7 +58,17 @@ def get_trending_projects():
             symbol = item.get("symbol", "???").upper()
             rank = item.get("market_cap_rank", "?")
             price, change = price_info.get(coin_id, ("?", "?"))
-            desc = descriptions.get(coin_id, "No description.")
+            desc = descriptions.get(coin_id, "Too early to say – DYOR 🔍")
+
+            if isinstance(price, (float, int)):
+                if price < 0.01:
+                    price_str = f"${price:.8f}"
+                elif price < 1:
+                    price_str = f"${price:.4f}"
+                else:
+                    price_str = f"${price:,.2f}"
+            else:
+                price_str = "?"
 
             if isinstance(change, float):
                 trend = "🔼" if change >= 0 else "🔻"
@@ -63,8 +78,8 @@ def get_trending_projects():
 
             result.append(
                 f"*{i+1}. ${symbol}* — Rank #{rank}\n"
-                f"💰 Price: ${price} — {change_str}\n"
-                f"🧠 {desc}.\n"
+                f"💰 Price: {price_str} — {change_str}\n"
+                f"🧠 {desc}\n"
             )
 
         return "\n".join(result)
