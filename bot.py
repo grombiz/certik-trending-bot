@@ -3,6 +3,7 @@ import schedule
 import time
 import random
 import os
+import re
 from telegram import Bot
 
 # Конфигурация
@@ -11,18 +12,40 @@ CHANNEL_USERNAME = "@toptrendingprojects"
 bot = Bot(token=BOT_TOKEN)
 
 def clean_description(desc):
-    """Обрезает до полного предложения или максимум 160 символов"""
-    if not desc:
+    """Обрезает текст до адекватного предложения или максимум 160 символов"""
+    if not desc or not isinstance(desc, str):
         return "Too early to say – DYOR 🔍"
-    sentences = desc.strip().split(". ")
+
+    desc = re.sub("<.*?>", "", desc.strip())
+    sentences = re.split(r'\.\s+', desc)
     for s in sentences:
-        if len(s.strip()) > 30:  # пропускаем мусор типа "what is it?"
-            result = s.strip()
+        if len(s.strip()) >= 40:
+            candidate = s.strip()
             break
     else:
-        result = sentences[0].strip()
-    final = result + "." if not result.endswith(".") else result
-    return final[:157] + "..." if len(final) > 160 else final
+        candidate = desc[:160].strip()
+
+    if len(candidate) > 160:
+        candidate = candidate[:157].rsplit(" ", 1)[0] + "..."
+
+    if not candidate.endswith((".", "!", "?", "…")):
+        candidate += "."
+
+    return candidate
+
+def assess_risk(volume, market_cap):
+    """Оценка уровня риска"""
+    try:
+        if market_cap is None or volume is None:
+            return "Unknown"
+        if market_cap < 1e7 or volume < 1e6:
+            return "High"
+        elif market_cap < 1e9 or volume < 1e7:
+            return "Medium"
+        else:
+            return "Low"
+    except:
+        return "Unknown"
 
 def format_price(price):
     if isinstance(price, (float, int)):
@@ -53,7 +76,9 @@ def get_trending_projects():
         price_info = {
             item["id"]: (
                 item.get("current_price", "?"),
-                round(item.get("price_change_percentage_24h", 0), 2)
+                round(item.get("price_change_percentage_24h", 0), 2),
+                item.get("total_volume", None),
+                item.get("market_cap", None)
             )
             for item in market_data
         }
@@ -64,7 +89,7 @@ def get_trending_projects():
             coin_id = item["id"]
             symbol = item.get("symbol", "???").upper()
             rank = item.get("market_cap_rank", "?")
-            price, change = price_info.get(coin_id, ("?", "?"))
+            price, change, volume, market_cap = price_info.get(coin_id, ("?", "?", None, None))
 
             # Получаем описание
             try:
@@ -75,7 +100,10 @@ def get_trending_projects():
             except:
                 description = "Too early to say – DYOR 🔍"
 
-            # Форматирование
+            # Риск
+            risk = assess_risk(volume, market_cap)
+
+            # Формат
             price_str = format_price(price)
             if isinstance(change, float):
                 trend = "🔼" if change >= 0 else "🔻"
@@ -86,6 +114,7 @@ def get_trending_projects():
             result.append(
                 f"{i+1}. ${symbol} — Rank #{rank}\n"
                 f"💰 Price: {price_str} — {change_str}\n"
+                f"📊 Risk: {risk}\n"
                 f"🧠 {description}"
             )
 
