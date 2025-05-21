@@ -11,12 +11,18 @@ CHANNEL_USERNAME = "@toptrendingprojects"
 bot = Bot(token=BOT_TOKEN)
 
 def clean_description(desc):
-    """Обрезает описание по первому предложению или 160 символов"""
+    """Обрезает до полного предложения или максимум 160 символов"""
     if not desc:
         return "Too early to say – DYOR 🔍"
-    first_sentence = desc.strip().split(". ")[0].strip()
-    short = first_sentence + "." if first_sentence else "Too early to say – DYOR 🔍"
-    return short[:157] + "..." if len(short) > 160 else short
+    sentences = desc.strip().split(". ")
+    for s in sentences:
+        if len(s.strip()) > 30:  # пропускаем мусор типа "what is it?"
+            result = s.strip()
+            break
+    else:
+        result = sentences[0].strip()
+    final = result + "." if not result.endswith(".") else result
+    return final[:157] + "..." if len(final) > 160 else final
 
 def format_price(price):
     if isinstance(price, (float, int)):
@@ -52,13 +58,11 @@ def get_trending_projects():
             for item in market_data
         }
 
-        projects = []
+        result = []
         for i, coin in enumerate(trending_data):
             item = coin["item"]
             coin_id = item["id"]
-            name = item.get("name", "Unknown")
             symbol = item.get("symbol", "???").upper()
-            logo = item.get("large", None) or "https://via.placeholder.com/200x200.png?text=No+Logo"
             rank = item.get("market_cap_rank", "?")
             price, change = price_info.get(coin_id, ("?", "?"))
 
@@ -71,7 +75,7 @@ def get_trending_projects():
             except:
                 description = "Too early to say – DYOR 🔍"
 
-            # Форматирование цены и % изменений
+            # Форматирование
             price_str = format_price(price)
             if isinstance(change, float):
                 trend = "🔼" if change >= 0 else "🔻"
@@ -79,22 +83,16 @@ def get_trending_projects():
             else:
                 change_str = "?"
 
-            # Текст для caption
-            text = (
-                f"*{i+1}. ${symbol}* — Rank #{rank}\n"
+            result.append(
+                f"{i+1}. ${symbol} — Rank #{rank}\n"
                 f"💰 Price: {price_str} — {change_str}\n"
                 f"🧠 {description}"
             )
 
-            projects.append({
-                "image": logo,
-                "caption": text
-            })
-
-        return projects, hashtags
+        return "\n\n".join(result), hashtags
 
     except Exception as e:
-        return [], f"⚠️ Error fetching data from CoinGecko: {e}"
+        return f"⚠️ Error fetching data from CoinGecko: {e}", ""
 
 def send_daily_report():
     now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -109,33 +107,20 @@ def send_daily_report():
     ]
 
     try:
-        projects, hashtags = get_trending_projects()
-        if not projects:
-            raise Exception(hashtags)  # здесь hashtags содержит текст ошибки
-
+        body, hashtags = get_trending_projects()
         intro = random.choice(headers)
-        bot.send_message(chat_id=CHANNEL_USERNAME, text=intro, parse_mode="Markdown")
+        full_message = f"{intro}\n\n{body}\n\n{hashtags}"
 
-        for proj in projects:
-            bot.send_photo(
-                chat_id=CHANNEL_USERNAME,
-                photo=proj["image"],
-                caption=proj["caption"],
-                parse_mode="Markdown"
-            )
-            time.sleep(1.2)  # Telegram rate-limit
-
-        bot.send_message(chat_id=CHANNEL_USERNAME, text=hashtags)
+        bot.send_message(chat_id=CHANNEL_USERNAME, text=full_message, parse_mode="Markdown")
         print(f"[{now}] ✅ Sent to Telegram")
 
     except Exception as e:
         print(f"[{now}] ❌ Telegram send error: {e}")
 
-# Планировщик (UTC): 06:00 и 18:00 = 08:00 и 20:00 Brussels
+# Планировщик по UTC (06:00 и 18:00 = 08:00 и 20:00 Brussels)
 schedule.every().day.at("06:00").do(send_daily_report)
 schedule.every().day.at("18:00").do(send_daily_report)
 
-# При запуске вручную
 if __name__ == "__main__":
     send_daily_report()
     while True:
