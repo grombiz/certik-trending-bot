@@ -33,14 +33,27 @@ def get_trending_projects():
             for item in market_data
         }
 
+        # Получение кратких описаний
+        descriptions = {}
+        for coin_id in ids:
+            try:
+                detail_url = f"https://api.coingecko.com/api/v3/coins/{coin_id}"
+                detail_data = requests.get(detail_url, timeout=10).json()
+                raw_desc = detail_data.get("description", {}).get("en", "")
+                short_desc = raw_desc.strip().split(". ")[0][:160]
+                descriptions[coin_id] = short_desc if short_desc else "No description available."
+            except:
+                descriptions[coin_id] = "No description available."
+
         result = []
         for i, coin in enumerate(trending_data):
             item = coin["item"]
             coin_id = item["id"]
             name = item.get("name", "Unknown")
-            symbol = item.get("symbol", "???")
+            symbol = item.get("symbol", "???").upper()
             rank = item.get("market_cap_rank", "?")
             price, change = price_info.get(coin_id, ("?", "?"))
+            desc = descriptions.get(coin_id, "No description.")
 
             if isinstance(change, float):
                 trend = "🔼" if change >= 0 else "🔻"
@@ -48,7 +61,11 @@ def get_trending_projects():
             else:
                 change_str = "?"
 
-            result.append(f"{i+1}. {name} ({symbol}) – Rank: {rank} – ${price} – {change_str}")
+            result.append(
+                f"*{i+1}. ${symbol}* — Rank #{rank}\n"
+                f"💰 Price: ${price} — {change_str}\n"
+                f"🧠 {desc}.\n"
+            )
 
         return "\n".join(result)
 
