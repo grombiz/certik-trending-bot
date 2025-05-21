@@ -12,26 +12,25 @@ CHANNEL_USERNAME = "@toptrendingprojects"
 bot = Bot(token=BOT_TOKEN)
 
 def clean_description(desc):
-    """Обрезает до нормального предложения или 160 символов по словам"""
+    """Обрезает до первого нормального предложения или до 160 символов по словам"""
     if not desc or not isinstance(desc, str):
         return "Too early to say – DYOR 🔍"
 
-    desc = re.sub("<.*?>", "", desc.strip())  # убираем HTML
+    desc = re.sub("<.*?>", "", desc.strip())  # Удаляем HTML
 
-    # Пытаемся найти полноценное предложение
+    # Пробуем взять первое нормальное предложение
     sentences = re.split(r'\.\s+', desc)
     for sentence in sentences:
         clean = sentence.strip()
-        if len(clean) >= 40 and clean[-1].isalnum():
+        if clean and clean[-1].isalnum():
             result = clean + "."
             break
     else:
-        # fallback: аккуратная обрезка по словам
-        if len(desc) > 160:
-            result = desc[:157]
+        # fallback: мягкая обрезка по словам
+        result = desc.strip()
+        if len(result) > 160:
+            result = result[:157]
             result = result.rsplit(" ", 1)[0].strip() + "..."
-        else:
-            result = desc
 
     if not result.endswith((".", "...", "!", "?", "…")):
         result += "."
@@ -39,7 +38,6 @@ def clean_description(desc):
     return result
 
 def assess_risk(volume, market_cap):
-    """Оценивает уровень риска по капе и объему"""
     try:
         if market_cap is None or volume is None:
             return "Unknown"
@@ -105,11 +103,9 @@ def get_trending_projects():
             except:
                 description = "Too early to say – DYOR 🔍"
 
-            # Риск
             risk = assess_risk(volume, market_cap)
-
-            # Формат
             price_str = format_price(price)
+
             if isinstance(change, float):
                 trend = "🔼" if change >= 0 else "🔻"
                 change_str = f"{trend} {abs(change)}%"
@@ -151,7 +147,7 @@ def send_daily_report():
     except Exception as e:
         print(f"[{now}] ❌ Telegram send error: {e}")
 
-# Планировщик (UTC = 2 часа раньше Брюсселя)
+# Планировщик (UTC = -2 часа к Брюсселю)
 schedule.every().day.at("06:00").do(send_daily_report)
 schedule.every().day.at("18:00").do(send_daily_report)
 
