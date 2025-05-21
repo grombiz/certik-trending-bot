@@ -10,6 +10,24 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_USERNAME = "@toptrendingprojects"
 bot = Bot(token=BOT_TOKEN)
 
+def clean_description(desc):
+    """Обрезает описание по первому предложению или 160 символам"""
+    if not desc:
+        return "Too early to say – DYOR 🔍"
+    first_sentence = desc.strip().split(". ")[0].strip()
+    short = first_sentence + "." if first_sentence else "Too early to say – DYOR 🔍"
+    return short[:157] + "..." if len(short) > 160 else short
+
+def format_price(price):
+    if isinstance(price, (float, int)):
+        if price < 0.01:
+            return f"${price:.8f}"
+        elif price < 1:
+            return f"${price:.4f}"
+        else:
+            return f"${price:,.2f}"
+    return "?"
+
 def get_trending_projects():
     try:
         trending_url = "https://api.coingecko.com/api/v3/search/trending"
@@ -17,14 +35,15 @@ def get_trending_projects():
         trending_data = trending_response.json().get("coins", [])[:7]
 
         ids = [coin["item"]["id"] for coin in trending_data]
-        ids_param = ",".join(ids)
+        tickers = [f"#{coin['item']['symbol'].upper()}" for coin in trending_data]
+        hashtags = " ".join(tickers)
 
+        ids_param = ",".join(ids)
         market_url = (
             f"https://api.coingecko.com/api/v3/coins/markets"
             f"?vs_currency=usd&ids={ids_param}&price_change_percentage=24h"
         )
         market_data = requests.get(market_url, timeout=10).json()
-
         price_info = {
             item["id"]: (
                 item.get("current_price", "?"),
@@ -33,75 +52,82 @@ def get_trending_projects():
             for item in market_data
         }
 
-        # Получение кратких описаний
-        descriptions = {}
-        for coin_id in ids:
-            try:
-                detail_url = f"https://api.coingecko.com/api/v3/coins/{coin_id}"
-                detail_data = requests.get(detail_url, timeout=10).json()
-                raw_desc = detail_data.get("description", {}).get("en", "").strip()
-
-                first_sentence = raw_desc.split(". ")[0].strip()
-                short_desc = (first_sentence + ".") if first_sentence else "Too early to say – DYOR 🔍"
-                if len(short_desc) > 160:
-                    short_desc = short_desc[:157] + "..."
-                descriptions[coin_id] = short_desc
-
-            except:
-                descriptions[coin_id] = "Too early to say – DYOR 🔍"
-
-        result = []
+        projects = []
         for i, coin in enumerate(trending_data):
             item = coin["item"]
             coin_id = item["id"]
             name = item.get("name", "Unknown")
             symbol = item.get("symbol", "???").upper()
+            logo = item.get("large", None)
             rank = item.get("market_cap_rank", "?")
             price, change = price_info.get(coin_id, ("?", "?"))
-            desc = descriptions.get(coin_id, "Too early to say – DYOR 🔍")
 
-            if isinstance(price, (float, int)):
-                if price < 0.01:
-                    price_str = f"${price:.8f}"
-                elif price < 1:
-                    price_str = f"${price:.4f}"
-                else:
-                    price_str = f"${price:,.2f}"
-            else:
-                price_str = "?"
+            # Получаем описание
+            try:
+                desc_url = f"https://api.coingecko.com/api/v3/coins/{coin_id}"
+                desc_data = requests.get(desc_url, timeout=10).json()
+                raw_desc = desc_data.get("description", {}).get("en", "")
+                description = clean_description(raw_desc)
+            except:
+                description = "Too early to say – DYOR 🔍"
 
+            # Форматирование цены и % изменений
+            price_str = format_price(price)
             if isinstance(change, float):
                 trend = "🔼" if change >= 0 else "🔻"
                 change_str = f"{trend} {abs(change)}%"
             else:
                 change_str = "?"
 
-            result.append(
+            # Формируем текст для caption
+            text = (
                 f"*{i+1}. ${symbol}* — Rank #{rank}\n"
                 f"💰 Price: {price_str} — {change_str}\n"
-                f"🧠 {desc}\n"
+                f"🧠 {description}"
             )
 
-        return "\n".join(result)
+            projects.append({
+                "image": logo,
+                "caption": text
+            })
+
+        return projects, hashtags
 
     except Exception as e:
-        return f"⚠️ Error fetching data from CoinGecko: {e}"
+        return [], f"⚠️ Error fetching data from CoinGecko: {e}"
 
 def send_daily_report():
     now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     print(f"[{now}] 📡 Fetching CoinGecko trends...")
 
+    headers = [
+        "📊 *Top 7 trending altcoins worth watching today:*",
+        "🚀 *Looking for momentum? These altcoins are on fire:*",
+        "🔍 *Most searched tokens on CoinGecko — updated every 12h:*",
+        "💡 *Curious what's hot in crypto? Here's the list:*",
+        "🔥 *Daily trend check — posted every 12 hours:*"
+    ]
+
     try:
-        headers = [
-            "📊 *Top 7 trending altcoins worth watching today:*",
-            "🚀 *Looking for momentum? These altcoins are on fire:*",
-            "🔍 *Most searched tokens on CoinGecko — updated every 12h:*",
-            "💡 *Curious what's hot in crypto? Here's the list:*",
-            "🔥 *Daily trend check — posted every 12 hours:*"
-        ]
+        projects, hashtags = get_trending_projects()
+        if not projects:
+            raise Exception(hashtags)  # тут hashtags содержит ошибку
+
         intro = random.choice(headers)
-        message = f"{intro}\n\n{get_trending_projects()}"
-        bot.send_message(chat_id=CHANNEL_USERNAME, text=message, parse_mode="Markdown")
+        bot.send_message(chat_id=CHANNEL_USERNAME, text=intro, parse_mode="Markdown")
+
+        for proj in projects:
+            bot.send_photo(
+                chat_id=CHANNEL_USERNAME,
+                photo=proj["image"],
+                caption=proj["caption"],
+                parse_mode="Markdown"
+            )
+            time.sleep(1.2)  # чтоб Telegram не заспамился
+
+        # Хэштеги в отдельном сообщении
+        bot.send_message(chat_id=CHANNEL_USERNAME, text=hashtags)
+
         print(f"[{now}] ✅ Sent to Telegram")
 
     except Exception as e:
