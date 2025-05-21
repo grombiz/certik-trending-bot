@@ -12,29 +12,34 @@ CHANNEL_USERNAME = "@toptrendingprojects"
 bot = Bot(token=BOT_TOKEN)
 
 def clean_description(desc):
-    """Обрезает текст до адекватного предложения или максимум 160 символов"""
+    """Обрезает до нормального предложения или 160 символов по словам"""
     if not desc or not isinstance(desc, str):
         return "Too early to say – DYOR 🔍"
 
-    desc = re.sub("<.*?>", "", desc.strip())
+    desc = re.sub("<.*?>", "", desc.strip())  # убираем HTML
+
+    # Пытаемся найти полноценное предложение
     sentences = re.split(r'\.\s+', desc)
-    for s in sentences:
-        if len(s.strip()) >= 40:
-            candidate = s.strip()
+    for sentence in sentences:
+        clean = sentence.strip()
+        if len(clean) >= 40 and clean[-1].isalnum():
+            result = clean + "."
             break
     else:
-        candidate = desc[:160].strip()
+        # fallback: аккуратная обрезка по словам
+        if len(desc) > 160:
+            result = desc[:157]
+            result = result.rsplit(" ", 1)[0].strip() + "..."
+        else:
+            result = desc
 
-    if len(candidate) > 160:
-        candidate = candidate[:157].rsplit(" ", 1)[0] + "..."
+    if not result.endswith((".", "...", "!", "?", "…")):
+        result += "."
 
-    if not candidate.endswith((".", "!", "?", "…")):
-        candidate += "."
-
-    return candidate
+    return result
 
 def assess_risk(volume, market_cap):
-    """Оценка уровня риска"""
+    """Оценивает уровень риска по капе и объему"""
     try:
         if market_cap is None or volume is None:
             return "Unknown"
@@ -146,7 +151,7 @@ def send_daily_report():
     except Exception as e:
         print(f"[{now}] ❌ Telegram send error: {e}")
 
-# Планировщик по UTC (06:00 и 18:00 = 08:00 и 20:00 Brussels)
+# Планировщик (UTC = 2 часа раньше Брюсселя)
 schedule.every().day.at("06:00").do(send_daily_report)
 schedule.every().day.at("18:00").do(send_daily_report)
 
