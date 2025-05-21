@@ -11,7 +11,7 @@ CHANNEL_USERNAME = "@toptrendingprojects"
 bot = Bot(token=BOT_TOKEN)
 
 def clean_description(desc):
-    """Обрезает описание по первому предложению или 160 символам"""
+    """Обрезает описание по первому предложению или 160 символов"""
     if not desc:
         return "Too early to say – DYOR 🔍"
     first_sentence = desc.strip().split(". ")[0].strip()
@@ -58,7 +58,7 @@ def get_trending_projects():
             coin_id = item["id"]
             name = item.get("name", "Unknown")
             symbol = item.get("symbol", "???").upper()
-            logo = item.get("large", None)
+            logo = item.get("large", None) or "https://via.placeholder.com/200x200.png?text=No+Logo"
             rank = item.get("market_cap_rank", "?")
             price, change = price_info.get(coin_id, ("?", "?"))
 
@@ -79,7 +79,7 @@ def get_trending_projects():
             else:
                 change_str = "?"
 
-            # Формируем текст для caption
+            # Текст для caption
             text = (
                 f"*{i+1}. ${symbol}* — Rank #{rank}\n"
                 f"💰 Price: {price_str} — {change_str}\n"
@@ -111,7 +111,7 @@ def send_daily_report():
     try:
         projects, hashtags = get_trending_projects()
         if not projects:
-            raise Exception(hashtags)  # тут hashtags содержит ошибку
+            raise Exception(hashtags)  # здесь hashtags содержит текст ошибки
 
         intro = random.choice(headers)
         bot.send_message(chat_id=CHANNEL_USERNAME, text=intro, parse_mode="Markdown")
@@ -123,21 +123,19 @@ def send_daily_report():
                 caption=proj["caption"],
                 parse_mode="Markdown"
             )
-            time.sleep(1.2)  # чтоб Telegram не заспамился
+            time.sleep(1.2)  # Telegram rate-limit
 
-        # Хэштеги в отдельном сообщении
         bot.send_message(chat_id=CHANNEL_USERNAME, text=hashtags)
-
         print(f"[{now}] ✅ Sent to Telegram")
 
     except Exception as e:
         print(f"[{now}] ❌ Telegram send error: {e}")
 
-# Планировщик по UTC (06:00 и 18:00 = 08:00 и 20:00 Brussels)
+# Планировщик (UTC): 06:00 и 18:00 = 08:00 и 20:00 Brussels
 schedule.every().day.at("06:00").do(send_daily_report)
 schedule.every().day.at("18:00").do(send_daily_report)
 
-# Тест при запуске
+# При запуске вручную
 if __name__ == "__main__":
     send_daily_report()
     while True:
