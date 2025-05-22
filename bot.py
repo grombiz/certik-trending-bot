@@ -6,19 +6,16 @@ import os
 import re
 from telegram import Bot
 
-# Конфигурация
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_USERNAME = "@toptrendingprojects"
 bot = Bot(token=BOT_TOKEN)
 
 def clean_description(desc):
-    """Обрезает до первого нормального предложения или до 160 символов по словам"""
     if not desc or not isinstance(desc, str):
         return "Too early to say – DYOR 🔍"
 
-    desc = re.sub("<.*?>", "", desc.strip())  # Удаляем HTML
+    desc = re.sub("<.*?>", "", desc.strip())
 
-    # Пробуем взять первое нормальное предложение
     sentences = re.split(r'\.\s+', desc)
     for sentence in sentences:
         clean = sentence.strip()
@@ -26,7 +23,6 @@ def clean_description(desc):
             result = clean + "."
             break
     else:
-        # fallback: мягкая обрезка по словам
         result = desc.strip()
         if len(result) > 160:
             result = result[:157]
@@ -94,15 +90,21 @@ def get_trending_projects():
             rank = item.get("market_cap_rank", "?")
             price, change, volume, market_cap = price_info.get(coin_id, ("?", "?", None, None))
 
-            # Получаем описание
+            # Получаем описание — безопасно
+            raw_desc = ""
+            desc_url = f"https://api.coingecko.com/api/v3/coins/{coin_id}"
             try:
-                desc_url = f"https://api.coingecko.com/api/v3/coins/{coin_id}"
-                desc_data = requests.get(desc_url, timeout=10).json()
-                raw_desc = desc_data.get("description", {}).get("en", "")
-                description = clean_description(raw_desc)
-            except:
-                description = "Too early to say – DYOR 🔍"
+                desc_response = requests.get(desc_url, timeout=10)
+                desc_data = desc_response.json()
+                if isinstance(desc_data, dict):
+                    raw_desc = desc_data.get("description", {}).get("en", "")
+                else:
+                    raise ValueError("Invalid response structure")
+            except Exception as e:
+                print(f"⚠️ Error parsing description for {coin_id}: {e}")
+                raw_desc = ""
 
+            description = clean_description(raw_desc)
             risk = assess_risk(volume, market_cap)
             price_str = format_price(price)
 
@@ -147,7 +149,7 @@ def send_daily_report():
     except Exception as e:
         print(f"[{now}] ❌ Telegram send error: {e}")
 
-# Планировщик (UTC = -2 часа к Брюсселю)
+# Планировщик (UTC = -2 часа от Брюсселя)
 schedule.every().day.at("06:00").do(send_daily_report)
 schedule.every().day.at("18:00").do(send_daily_report)
 
