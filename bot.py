@@ -10,29 +10,6 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_USERNAME = "@toptrendingprojects"
 bot = Bot(token=BOT_TOKEN)
 
-def clean_description(desc):
-    if not desc or not isinstance(desc, str):
-        return "Too early to say – DYOR 🔍"
-
-    desc = re.sub("<.*?>", "", desc.strip())
-
-    sentences = re.split(r'\.\s+', desc)
-    for sentence in sentences:
-        clean = sentence.strip()
-        if clean and clean[-1].isalnum():
-            result = clean + "."
-            break
-    else:
-        result = desc.strip()
-        if len(result) > 160:
-            result = result[:157]
-            result = result.rsplit(" ", 1)[0].strip() + "..."
-
-    if not result.endswith((".", "...", "!", "?", "…")):
-        result += "."
-
-    return result
-
 def assess_risk(volume, market_cap):
     try:
         if market_cap is None or volume is None:
@@ -54,6 +31,11 @@ def format_price(price):
             return f"${price:.4f}"
         else:
             return f"${price:,.2f}"
+    return "?"
+
+def format_volume(volume):
+    if isinstance(volume, (float, int)):
+        return f"${volume:,.0f}"
     return "?"
 
 def get_trending_projects():
@@ -90,23 +72,9 @@ def get_trending_projects():
             rank = item.get("market_cap_rank", "?")
             price, change, volume, market_cap = price_info.get(coin_id, ("?", "?", None, None))
 
-            # Получаем описание — безопасно
-            raw_desc = ""
-            desc_url = f"https://api.coingecko.com/api/v3/coins/{coin_id}"
-            try:
-                desc_response = requests.get(desc_url, timeout=10)
-                desc_data = desc_response.json()
-                if isinstance(desc_data, dict):
-                    raw_desc = desc_data.get("description", {}).get("en", "")
-                else:
-                    raise ValueError("Invalid response structure")
-            except Exception as e:
-                print(f"⚠️ Error parsing description for {coin_id}: {e}")
-                raw_desc = ""
-
-            description = clean_description(raw_desc)
             risk = assess_risk(volume, market_cap)
             price_str = format_price(price)
+            volume_str = format_volume(volume)
 
             if isinstance(change, float):
                 trend = "🔼" if change >= 0 else "🔻"
@@ -117,8 +85,8 @@ def get_trending_projects():
             result.append(
                 f"{i+1}. ${symbol} — Rank #{rank}\n"
                 f"💰 Price: {price_str} — {change_str}\n"
-                f"📊 Risk: {risk}\n"
-                f"🧠 {description}"
+                f"📉 Volume (24h): {volume_str}\n"
+                f"📊 Risk: {risk}"
             )
 
         return "\n\n".join(result), hashtags
@@ -149,7 +117,7 @@ def send_daily_report():
     except Exception as e:
         print(f"[{now}] ❌ Telegram send error: {e}")
 
-# Планировщик (UTC = -2 часа от Брюсселя)
+# Планировщик (UTC)
 schedule.every().day.at("06:00").do(send_daily_report)
 schedule.every().day.at("18:00").do(send_daily_report)
 
