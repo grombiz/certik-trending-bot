@@ -3,7 +3,6 @@ import schedule
 import time
 import random
 import os
-import re
 from telegram import Bot
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -53,7 +52,15 @@ def get_trending_projects():
             f"https://api.coingecko.com/api/v3/coins/markets"
             f"?vs_currency=usd&ids={ids_param}&price_change_percentage=24h"
         )
-        market_data = requests.get(market_url, timeout=10).json()
+
+        market_response = requests.get(market_url, timeout=10)
+        try:
+            market_data = market_response.json()
+            if not isinstance(market_data, list):
+                raise ValueError("Invalid market data structure")
+        except Exception as e:
+            return f"⚠️ Error fetching data from CoinGecko: {e}", ""
+
         price_info = {
             item["id"]: (
                 item.get("current_price", "?"),
