@@ -126,7 +126,6 @@ def send_daily_report():
 
 # Планировщик (UTC)
 schedule.every().day.at("06:00").do(send_daily_report)
-schedule.every().day.at("18:00").do(send_daily_report)
 
 if __name__ == "__main__":
     send_daily_report()
