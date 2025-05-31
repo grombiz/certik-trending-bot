@@ -37,49 +37,34 @@ def format_volume(volume):
         return f"${volume:,.0f}"
     return "?"
 
-# Получение трендовых проектов
+# Получение трендовых проектов из Coinpaprika
 def get_trending_projects():
     try:
-        trending_url = "https://api.coingecko.com/api/v3/search/trending"
-        trending_data = requests.get(trending_url, timeout=10).json().get("coins", [])[:7]
-        ids = [coin["item"]["id"] for coin in trending_data]
-        tickers = [f"#{coin['item']['symbol'].upper()}" for coin in trending_data]
-        hashtags = " ".join(tickers)
+        url = "https://api.coinpaprika.com/v1/tickers"
+        response = requests.get(url, timeout=10)
+        data = response.json()
 
-        ids_param = ",".join(ids)
-        market_url = f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids={ids_param}&price_change_percentage=24h"
-        market_response = requests.get(market_url, timeout=10)
-        try:
-            market_data = market_response.json()
-            if not isinstance(market_data, list):
-                raise ValueError(f"Неверный ответ от CoinGecko: {market_data}")
-        except Exception as e:
-            return f"⚠️ Ошибка получения данных с CoinGecko: {e}", ""
-
-        price_info = {
-            item["id"]: (
-                item.get("current_price", "?"),
-                round(item.get("price_change_percentage_24h", 0), 2),
-                item.get("total_volume", None),
-                item.get("market_cap", None)
-            )
-            for item in market_data
-        }
+        # Сортируем по объёму и берём топ-7
+        sorted_data = sorted(data, key=lambda x: x.get("quotes", {}).get("USD", {}).get("volume_24h", 0), reverse=True)[:7]
 
         result = []
-        for i, coin in enumerate(trending_data):
-            item = coin["item"]
-            coin_id = item["id"]
-            symbol = item.get("symbol", "???").upper()
-            rank = item.get("market_cap_rank", "?")
-            price, change, volume, market_cap = price_info.get(coin_id, ("?", "?", None, None))
+        hashtags = []
+
+        for i, token in enumerate(sorted_data):
+            symbol = token.get("symbol", "???")
+            name = token.get("name", "???")
+            rank = token.get("rank", "?")
+            quotes = token.get("quotes", {}).get("USD", {})
+            price = quotes.get("price", "?")
+            change = quotes.get("percent_change_24h", 0)
+            volume = quotes.get("volume_24h", None)
+            market_cap = quotes.get("market_cap", None)
 
             risk = assess_risk(volume, market_cap)
             price_str = format_price(price)
             volume_str = format_volume(volume)
-
             trend = "🔼" if isinstance(change, float) and change >= 0 else "🔻"
-            change_str = f"{trend} {abs(change)}%" if isinstance(change, float) else "?"
+            change_str = f"{trend} {abs(change):.2f}%" if isinstance(change, float) else "?"
 
             result.append(
                 f"{i+1}. ${symbol} — Ранг #{rank}\n"
@@ -87,10 +72,12 @@ def get_trending_projects():
                 f"📉 Объём (24ч): {volume_str}\n"
                 f"📊 Риск: {risk}"
             )
+            hashtags.append(f"#{symbol}")
 
-        return "\n\n".join(result), hashtags
+        return "\n\n".join(result), " ".join(hashtags)
+
     except Exception as e:
-        return f"⚠️ Ошибка при загрузке: {e}", ""
+        return f"⚠️ Ошибка при загрузке с Coinpaprika: {e}", ""
 
 # Загрузка новостей (мок)
 def get_crypto_news():
@@ -104,11 +91,11 @@ def get_crypto_news():
 # Отправка трендов
 def send_daily_report():
     now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    print(f"[{now}] Получаем тренды CoinGecko...")
+    print(f"[{now}] Получаем тренды Coinpaprika...")
     headers = [
-        "📊 *7 самых популярных альткоинов по версии CoinGecko:*",
+        "📊 *7 самых популярных альткоинов по версии Coinpaprika:*",
         "🚀 *Топ альткоинов, которые на слуху сегодня:*",
-        "🔍 *Самые частые поиски на CoinGecko — обновление раз в сутки:*",
+        "🔍 *Самые частые поиски по Coinpaprika — обновление раз в сутки:*",
         "💡 *Что в тренде? Список горячих альтов:*",
         "🔥 *Тренды крипторынка — свежая сводка:*"
     ]
