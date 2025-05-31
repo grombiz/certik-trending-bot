@@ -3,5 +3,7 @@ requests
 beautifulsoup4
 schedule
 feedparser
+deep_translator
+
 
 
