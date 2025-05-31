@@ -98,12 +98,13 @@ def get_trending_projects():
     except Exception as e:
         return f"⚠️ Ошибка при загрузке с Coinpaprika: {e}", ""
 
-# Загрузка новостей через RSS (вместо CryptoPanic API)
+# Загрузка новостей через Cointelegraph RSS
+
 def get_crypto_news():
     try:
-        feed = feedparser.parse("https://cryptopanic.com/news/feed")
+        feed = feedparser.parse("https://cointelegraph.com/rss")
         if not feed.entries:
-            return ["⚠️ Нет новостей в ленте."]
+            return ["⚠️ Нет новостей в Cointelegraph."]
         news = []
         for entry in feed.entries[:3]:
             title = str(entry.get("title", "Без названия")).strip()
