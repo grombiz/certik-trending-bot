@@ -38,7 +38,15 @@ def format_volume(volume):
     return "?"
 
 # Получение трендовых проектов из Coinpaprika
-EXCLUDED_SYMBOLS = {"BTC", "ETH", "USDT", "USDC", "BUSD", "FDUSD", "TUSD", "DAI", "XRP", "WBNB", "DOGE", "WETH"}
+EXCLUDED_SYMBOLS = {"BTC", "ETH", "USDT", "USDC", "BUSD", "FDUSD", "TUSD", "DAI", "XRP", "WBNB", "DOGE", "WETH", "BNB", "TRX"}
+
+# Фильтрация мемкойнов и NFT/DeFi-токенов
+MEME_KEYWORDS = ["dog", "inu", "pepe", "meme", "elon"]
+NFT_DEFI_KEYWORDS = ["nft", "defi", "swap", "dex"]
+
+def is_meme_or_nft(token):
+    name = token.get("name", "").lower()
+    return any(k in name for k in MEME_KEYWORDS + NFT_DEFI_KEYWORDS)
 
 def get_trending_projects():
     try:
@@ -46,14 +54,18 @@ def get_trending_projects():
         response = requests.get(url, timeout=10)
         data = response.json()
 
-        # Исключаем мейджоры и стейблкоины
+        # Исключаем мейджоры, стейблы и нежелательные категории
         filtered_data = [
             token for token in data
-            if token.get("symbol") not in EXCLUDED_SYMBOLS
+            if token.get("symbol") not in EXCLUDED_SYMBOLS and not is_meme_or_nft(token)
         ]
 
-        # Сортируем по объёму и берём топ-7
-        sorted_data = sorted(filtered_data, key=lambda x: x.get("quotes", {}).get("USD", {}).get("volume_24h", 0), reverse=True)[:7]
+        # Сортировка по объёму и топ-7
+        sorted_data = sorted(
+            filtered_data,
+            key=lambda x: x.get("quotes", {}).get("USD", {}).get("volume_24h", 0),
+            reverse=True
+        )[:7]
 
         result = []
         hashtags = []
@@ -87,14 +99,22 @@ def get_trending_projects():
     except Exception as e:
         return f"⚠️ Ошибка при загрузке с Coinpaprika: {e}", ""
 
-# Загрузка новостей (мок)
+# Загрузка новостей через CryptoPanic (реальное API)
 def get_crypto_news():
-    news = [
-        "📰 [BTC] BlackRock запускает новый биткоин-ETF — ожидается рост интереса инвесторов\n🔗 https://www.coindesk.com/article1",
-        "📰 [ETH] Ethereum планирует обновление сети до версии Pectra в июне\n🔗 https://www.cointelegraph.com/article2",
-        "📰 [SOL] Solana объединилась с Shopify для внедрения NFT-оплаты\n🔗 https://cryptoslate.com/article3"
-    ]
-    return random.sample(news, 2)
+    try:
+        url = "https://cryptopanic.com/api/v1/posts/?auth_token=demo&public=true"
+        response = requests.get(url, timeout=10)
+        articles = response.json().get("results", [])[:2]
+
+        news = []
+        for article in articles:
+            title = article.get("title", "Без названия")
+            link = article.get("url", "")
+            news.append(f"📰 {title}\n🔗 {link}")
+
+        return news
+    except Exception as e:
+        return [f"⚠️ Ошибка загрузки новостей: {e}"]
 
 # Отправка трендов
 def send_daily_report():
