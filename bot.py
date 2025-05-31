@@ -38,7 +38,7 @@ def format_volume(volume):
     return "?"
 
 # Получение трендовых проектов из Coinpaprika
-EXCLUDED_SYMBOLS = {"BTC", "ETH", "USDT", "USDC", "BUSD", "FDUSD", "TUSD", "DAI"}
+EXCLUDED_SYMBOLS = {"BTC", "ETH", "USDT", "USDC", "BUSD", "FDUSD", "TUSD", "DAI", "XRP", "WBNB", "DOGE", "WETH"}
 
 def get_trending_projects():
     try:
