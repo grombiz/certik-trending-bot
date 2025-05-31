@@ -5,6 +5,7 @@ import requests
 import os
 import feedparser
 from telegram import Bot
+from deep_translator import GoogleTranslator
 
 # Конфигурация
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -105,12 +106,14 @@ def get_crypto_news():
         feed = feedparser.parse("https://cointelegraph.com/rss")
         if not feed.entries:
             return ["⚠️ Нет новостей в Cointelegraph."]
-        news = []
-        for entry in feed.entries[:3]:
-            title = str(entry.get("title", "Без названия")).strip()
-            link = str(entry.get("link", "")).strip()
-            news.append(f"📰 {title}\n🔗 {link}")
-        return news
+
+        entry = feed.entries[0]  # Только одна новость
+        title_en = str(entry.get("title", "Без названия")).strip()
+        link = str(entry.get("link", "")).strip()
+
+        title_ru = GoogleTranslator(source='auto', target='ru').translate(title_en)
+
+        return [f"📰 {title_ru}\n🔗 {link}"]
     except Exception as e:
         return [f"⚠️ Ошибка загрузки новостей: {e}"]
 
