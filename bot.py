@@ -52,7 +52,7 @@ def get_trending_projects():
         try:
             market_data = market_response.json()
             if not isinstance(market_data, list):
-                raise ValueError("Ошибка структуры market data")
+                raise ValueError(f"Неверный ответ от CoinGecko: {market_data}")
         except Exception as e:
             return f"⚠️ Ошибка получения данных с CoinGecko: {e}", ""
 
