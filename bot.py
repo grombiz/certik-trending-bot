@@ -54,13 +54,11 @@ def get_trending_projects():
         response = requests.get(url, timeout=10)
         data = response.json()
 
-        # Исключаем мейджоры, стейблы и нежелательные категории
         filtered_data = [
             token for token in data
             if token.get("symbol") not in EXCLUDED_SYMBOLS and not is_meme_or_nft(token)
         ]
 
-        # Сортировка по объёму и топ-7
         sorted_data = sorted(
             filtered_data,
             key=lambda x: x.get("quotes", {}).get("USD", {}).get("volume_24h", 0),
@@ -116,19 +114,23 @@ def get_crypto_news():
     except Exception as e:
         return [f"⚠️ Ошибка загрузки новостей: {e}"]
 
-# Календарь криптособытий (используем Coinpaprika events endpoint)
+# Календарь криптособытий (обновлённый парсер)
 def get_crypto_events():
     try:
         url = "https://api.coinpaprika.com/v1/events"
         response = requests.get(url, timeout=10)
-        events = response.json()[:3]  # Показываем только 3 события
+
+        if "application/json" not in response.headers.get("Content-Type", ""):
+            return f"⚠️ Ошибка: неожиданный ответ от Coinpaprika (не JSON)."
+
+        events = response.json()[:3]
 
         result = ["📅 Календарь ближайших криптособытий:"]
         for event in events:
             name = event.get("name", "Без названия")
             date = event.get("date", "Дата неизвестна")
             link = event.get("proof", "")
-            result.append(f"📌 {name} — {date}\n🔗 {link}")
+            result.append(f"📌 {name} — {date}\n🔗 {link if link else '—'}")
 
         return "\n\n".join(result)
     except Exception as e:
@@ -171,7 +173,8 @@ schedule.every().day.at("16:00").do(send_crypto_events)    # 18:00 Brussels
 
 # Запуск
 if __name__ == "__main__":
-    send_daily_report()  # тест при старте
+    send_daily_report()
+    send_crypto_news()  # <-- временный запуск для теста новостей
     while True:
         schedule.run_pending()
         time.sleep(60)
