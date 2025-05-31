@@ -101,11 +101,13 @@ def get_trending_projects():
 # Загрузка новостей через RSS (вместо CryptoPanic API)
 def get_crypto_news():
     try:
-        feed = feedparser.parse("https://cryptopanic.com/feed")
+        feed = feedparser.parse("https://cryptopanic.com/news/feed")
+        if not feed.entries:
+            return ["⚠️ Нет новостей в ленте."]
         news = []
         for entry in feed.entries[:3]:
-            title = entry.get("title", "Без названия")
-            link = entry.get("link", "")
+            title = str(entry.get("title", "Без названия")).strip()
+            link = str(entry.get("link", "")).strip()
             news.append(f"📰 {title}\n🔗 {link}")
         return news
     except Exception as e:
