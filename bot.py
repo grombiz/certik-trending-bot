@@ -38,14 +38,22 @@ def format_volume(volume):
     return "?"
 
 # Получение трендовых проектов из Coinpaprika
+EXCLUDED_SYMBOLS = {"BTC", "ETH", "USDT", "USDC", "BUSD", "FDUSD", "TUSD", "DAI"}
+
 def get_trending_projects():
     try:
         url = "https://api.coinpaprika.com/v1/tickers"
         response = requests.get(url, timeout=10)
         data = response.json()
 
+        # Исключаем мейджоры и стейблкоины
+        filtered_data = [
+            token for token in data
+            if token.get("symbol") not in EXCLUDED_SYMBOLS
+        ]
+
         # Сортируем по объёму и берём топ-7
-        sorted_data = sorted(data, key=lambda x: x.get("quotes", {}).get("USD", {}).get("volume_24h", 0), reverse=True)[:7]
+        sorted_data = sorted(filtered_data, key=lambda x: x.get("quotes", {}).get("USD", {}).get("volume_24h", 0), reverse=True)[:7]
 
         result = []
         hashtags = []
