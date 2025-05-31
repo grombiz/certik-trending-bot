@@ -5,7 +5,6 @@ import requests
 import os
 import feedparser
 from telegram import Bot
-from deep_translator import GoogleTranslator
 
 # Конфигурация
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -99,23 +98,25 @@ def get_trending_projects():
     except Exception as e:
         return f"⚠️ Ошибка при загрузке с Coinpaprika: {e}", ""
 
-# Загрузка новостей через Cointelegraph RSS
+# Загрузка новостей из ForkLog, Bits.media и РБК Крипто
+NEWS_FEEDS = [
+    "https://forklog.com/feed",
+    "https://bits.media/rss/news/",
+    "https://rssexport.rbc.ru/rbcnews/cryptonews.rss"
+]
 
 def get_crypto_news():
-    try:
-        feed = feedparser.parse("https://cointelegraph.com/rss")
-        if not feed.entries:
-            return ["⚠️ Нет новостей в Cointelegraph."]
-
-        entry = feed.entries[0]  # Только одна новость
-        title_en = str(entry.get("title", "Без названия")).strip()
-        link = str(entry.get("link", "")).strip()
-
-        title_ru = GoogleTranslator(source='auto', target='ru').translate(title_en)
-
-        return [f"📰 {title_ru}\n🔗 {link}"]
-    except Exception as e:
-        return [f"⚠️ Ошибка загрузки новостей: {e}"]
+    for url in random.sample(NEWS_FEEDS, len(NEWS_FEEDS)):
+        try:
+            feed = feedparser.parse(url)
+            if feed.entries:
+                entry = feed.entries[0]  # Берём только одну новость
+                title = str(entry.get("title", "Без названия")).strip()
+                link = str(entry.get("link", "")).strip()
+                return [f"📰 {title}\n🔗 {link}"]
+        except Exception as e:
+            continue
+    return ["⚠️ Нет новостей в RSS-источниках."]
 
 # Календарь криптособытий
 
