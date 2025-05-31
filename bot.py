@@ -3,6 +3,7 @@ import time
 import random
 import requests
 import os
+import feedparser
 from telegram import Bot
 
 # Конфигурация
@@ -97,24 +98,21 @@ def get_trending_projects():
     except Exception as e:
         return f"⚠️ Ошибка при загрузке с Coinpaprika: {e}", ""
 
-# Загрузка новостей через CryptoPanic (реальное API)
+# Загрузка новостей через RSS (вместо CryptoPanic API)
 def get_crypto_news():
     try:
-        url = "https://cryptopanic.com/api/v1/posts/?auth_token=demo&public=true"
-        response = requests.get(url, timeout=10)
-        articles = response.json().get("results", [])[:2]
-
+        feed = feedparser.parse("https://cryptopanic.com/feed")
         news = []
-        for article in articles:
-            title = article.get("title", "Без названия")
-            link = article.get("url", "")
+        for entry in feed.entries[:3]:
+            title = entry.get("title", "Без названия")
+            link = entry.get("link", "")
             news.append(f"📰 {title}\n🔗 {link}")
-
         return news
     except Exception as e:
         return [f"⚠️ Ошибка загрузки новостей: {e}"]
 
-# Календарь криптособытий (обновлённый парсер)
+# Календарь криптособытий
+
 def get_crypto_events():
     try:
         url = "https://api.coinpaprika.com/v1/events"
