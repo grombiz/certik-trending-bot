@@ -118,29 +118,6 @@ def get_crypto_news():
             continue
     return ["⚠️ Нет новостей в RSS-источниках."]
 
-# Календарь криптособытий
-
-def get_crypto_events():
-    try:
-        url = "https://api.coinpaprika.com/v1/events"
-        response = requests.get(url, timeout=10)
-
-        if "application/json" not in response.headers.get("Content-Type", ""):
-            return f"⚠️ Ошибка: неожиданный ответ от Coinpaprika (не JSON)."
-
-        events = response.json()[:3]
-
-        result = ["📅 Календарь ближайших криптособытий:"]
-        for event in events:
-            name = event.get("name", "Без названия")
-            date = event.get("date", "Дата неизвестна")
-            link = event.get("proof", "")
-            result.append(f"📌 {name} — {date}\n🔗 {link if link else '—'}")
-
-        return "\n\n".join(result)
-    except Exception as e:
-        return f"⚠️ Ошибка загрузки событий: {e}"
-
 # Отправка трендов
 def send_daily_report():
     now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -164,17 +141,11 @@ def send_crypto_news():
     for news in news_items:
         bot.send_message(chat_id=CHANNEL_USERNAME, text=news)
 
-# Отправка календаря событий
-def send_crypto_events():
-    print("[📅] Публикуем криптособытия...")
-    events_message = get_crypto_events()
-    bot.send_message(chat_id=CHANNEL_USERNAME, text=events_message)
-
 # Планировщик (по UTC)
 schedule.every().day.at("06:00").do(send_daily_report)    # 08:00 Brussels
 schedule.every().day.at("10:00").do(send_crypto_news)      # 12:00 Brussels
 schedule.every().day.at("14:00").do(send_crypto_news)      # 16:00 Brussels
-schedule.every().day.at("16:00").do(send_crypto_events)    # 18:00 Brussels
+schedule.every().day.at("16:00").do(send_crypto_news)      # замена событий на новости в 18:00 Brussels
 
 # Запуск
 if __name__ == "__main__":
