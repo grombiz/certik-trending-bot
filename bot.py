@@ -2,13 +2,12 @@ import schedule
 import time
 import random
 import requests
-import os
 import feedparser
 from telegram import Bot
+from telegram.error import TelegramError
+from config import BOT_TOKEN, CHAT_ID
 
-# Конфигурация
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHANNEL_USERNAME = "@toptrendingprojects"
+# Инициализация бота
 bot = Bot(token=BOT_TOKEN)
 
 # Функция оценки риска
@@ -22,7 +21,6 @@ def assess_risk(volume, market_cap):
     else:
         return "Низкий"
 
-# Форматирование чисел
 def format_price(price):
     if isinstance(price, (float, int)):
         if price < 0.01:
@@ -38,10 +36,8 @@ def format_volume(volume):
         return f"${volume:,.0f}"
     return "?"
 
-# Получение трендовых проектов из Coinpaprika
+# Исключения
 EXCLUDED_SYMBOLS = {"BTC", "ETH", "USDT", "USDC", "BUSD", "FDUSD", "TUSD", "DAI", "XRP", "WBNB", "DOGE", "WETH", "BNB", "TRX"}
-
-# Фильтрация мемкойнов и NFT/DeFi-токенов
 MEME_KEYWORDS = ["dog", "inu", "pepe", "meme", "elon"]
 NFT_DEFI_KEYWORDS = ["nft", "defi", "swap", "dex"]
 
@@ -98,7 +94,6 @@ def get_trending_projects():
     except Exception as e:
         return f"⚠️ Ошибка при загрузке с Coinpaprika: {e}", ""
 
-# Загрузка новостей из ForkLog, Bits.media и РБК Крипто
 NEWS_FEEDS = [
     "https://forklog.com/feed",
     "https://bits.media/rss/news/",
@@ -110,15 +105,21 @@ def get_crypto_news():
         try:
             feed = feedparser.parse(url)
             if feed.entries:
-                entry = feed.entries[0]  # Берём только одну новость
+                entry = feed.entries[0]
                 title = str(entry.get("title", "Без названия")).strip()
                 link = str(entry.get("link", "")).strip()
                 return [f"📰 {title}\n🔗 {link}"]
-        except Exception as e:
+        except Exception:
             continue
     return ["⚠️ Нет новостей в RSS-источниках."]
 
-# Отправка трендов
+def send_message_safe(text, parse_mode="Markdown"):
+    try:
+        msg = bot.send_message(chat_id=CHAT_ID, text=text, parse_mode=parse_mode)
+        print(f"[✅] Message sent: ID {msg.message_id}")
+    except TelegramError as e:
+        print(f"[❌] Telegram error: {e}")
+
 def send_daily_report():
     now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
     print(f"[{now}] Получаем тренды Coinpaprika...")
@@ -132,25 +133,23 @@ def send_daily_report():
     body, hashtags = get_trending_projects()
     intro = random.choice(headers)
     message = f"{intro}\n\n{body}\n\n{hashtags}"
-    bot.send_message(chat_id=CHANNEL_USERNAME, text=message, parse_mode="Markdown")
+    send_message_safe(message)
 
-# Отправка новостей
 def send_crypto_news():
     print("[📢] Публикуем свежие новости...")
     news_items = get_crypto_news()
     for news in news_items:
-        bot.send_message(chat_id=CHANNEL_USERNAME, text=news)
+        send_message_safe(news)
 
-# Планировщик (по UTC)
-schedule.every().day.at("06:00").do(send_daily_report)    # 08:00 Brussels
-schedule.every().day.at("10:00").do(send_crypto_news)      # 12:00 Brussels
-schedule.every().day.at("14:00").do(send_crypto_news)      # 16:00 Brussels
-schedule.every().day.at("16:00").do(send_crypto_news)      # замена событий на новости в 18:00 Brussels
+# Планировщик
+schedule.every().day.at("06:00").do(send_daily_report)
+schedule.every().day.at("10:00").do(send_crypto_news)
+schedule.every().day.at("14:00").do(send_crypto_news)
+schedule.every().day.at("16:00").do(send_crypto_news)
 
-# Запуск
 if __name__ == "__main__":
     send_daily_report()
-    send_crypto_news()  # <-- временный запуск для теста новостей
+    send_crypto_news()
     while True:
         schedule.run_pending()
         time.sleep(60)
