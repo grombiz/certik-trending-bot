@@ -3,14 +3,15 @@ import time
 import random
 import requests
 import feedparser
+import asyncio
 from telegram import Bot
 from telegram.error import TelegramError
 from config import BOT_TOKEN, CHAT_ID
 
-# Инициализация бота
+# Инициализация Telegram-бота
 bot = Bot(token=BOT_TOKEN)
 
-# Функция оценки риска
+# Оценка риска
 def assess_risk(volume, market_cap):
     if market_cap is None or volume is None:
         return "Неизвестен"
@@ -113,16 +114,18 @@ def get_crypto_news():
             continue
     return ["⚠️ Нет новостей в RSS-источниках."]
 
-def send_message_safe(text, parse_mode="Markdown"):
+# ✅ ASYNC-отправка сообщений
+async def send_message_safe(text, parse_mode="Markdown"):
+    print(f"[→] Отправка в {CHAT_ID}...")
     try:
-        msg = bot.send_message(chat_id=CHAT_ID, text=text, parse_mode=parse_mode)
-        print(f"[✅] Message sent: ID {msg.message_id}")
+        msg = await bot.send_message(chat_id=CHAT_ID, text=text, parse_mode=parse_mode)
+        print(f"[✅] Отправлено: ID {msg.message_id}")
     except TelegramError as e:
         print(f"[❌] Telegram error: {e}")
 
+# 🎯 Обёртки для запуска в синхронной среде (Render)
 def send_daily_report():
-    now = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-    print(f"[{now}] Получаем тренды Coinpaprika...")
+    print("[⏱] Генерация трендов Coinpaprika...")
     headers = [
         "📊 *7 самых популярных альткоинов по версии Coinpaprika:*",
         "🚀 *Топ альткоинов, которые на слуху сегодня:*",
@@ -133,13 +136,13 @@ def send_daily_report():
     body, hashtags = get_trending_projects()
     intro = random.choice(headers)
     message = f"{intro}\n\n{body}\n\n{hashtags}"
-    send_message_safe(message)
+    asyncio.run(send_message_safe(message))
 
 def send_crypto_news():
     print("[📢] Публикуем свежие новости...")
     news_items = get_crypto_news()
     for news in news_items:
-        send_message_safe(news)
+        asyncio.run(send_message_safe(news))
 
 # Планировщик
 schedule.every().day.at("06:00").do(send_daily_report)
