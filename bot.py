@@ -1,3 +1,6 @@
+# bot.py
+import schedule
+import time
 import random
 import requests
 import feedparser
@@ -6,6 +9,7 @@ from telegram import Bot
 from telegram.error import TelegramError
 from config import BOT_TOKEN, CHAT_ID
 
+# Инициализация Telegram-бота
 bot = Bot(token=BOT_TOKEN)
 
 # Оценка риска
@@ -34,6 +38,7 @@ def format_volume(volume):
         return f"${volume:,.0f}"
     return "?"
 
+# Исключения
 EXCLUDED_SYMBOLS = {"BTC", "ETH", "USDT", "USDC", "BUSD", "FDUSD", "TUSD", "DAI", "XRP", "WBNB", "DOGE", "WETH", "BNB", "TRX"}
 MEME_KEYWORDS = ["dog", "inu", "pepe", "meme", "elon"]
 NFT_DEFI_KEYWORDS = ["nft", "defi", "swap", "dex"]
@@ -98,26 +103,35 @@ NEWS_FEEDS = [
 ]
 
 def get_crypto_news():
-    for url in random.sample(NEWS_FEEDS, len(NEWS_FEEDS)):
+    all_entries = []
+
+    for url in NEWS_FEEDS:
         try:
             feed = feedparser.parse(url)
             if feed.entries:
-                entry = feed.entries[0]
-                title = str(entry.get("title", "Без названия")).strip()
-                link = str(entry.get("link", "")).strip()
-                return [f"📰 {title}\n🔗 {link}"]
-        except Exception:
+                all_entries.extend(feed.entries[:5])
+        except Exception as e:
+            print(f"[DEBUG] Ошибка RSS {url}: {e}")
             continue
-    return ["⚠️ Нет новостей в RSS-источниках."]
 
+    if all_entries:
+        entry = random.choice(all_entries)
+        title = str(entry.get("title", "Без названия")).strip()
+        link = str(entry.get("link", "")).strip()
+        return [f"📰 {title}\n🔗 {link}"]
+    else:
+        return ["⚠️ Нет новостей в RSS-источниках."]
+
+# ✅ ASYNC-отправка сообщений
 async def send_message_safe(text, parse_mode="Markdown"):
-    print(f"[→] Отправка в {CHAT_ID}...")
+    print(f"[→] Отправка в {CHAT_ID}: {text[:40]}...")
     try:
         msg = await bot.send_message(chat_id=CHAT_ID, text=text, parse_mode=parse_mode)
         print(f"[✅] Отправлено: ID {msg.message_id}")
     except TelegramError as e:
-        print(f"[❌] Telegram error: {e}")
+        print(f"[❌] Telegram ошибка: {e}")
 
+# 🎯 Обёртки для запуска в синхронной среде (Render)
 def send_daily_report():
     print("[⏱] Генерация трендов Coinpaprika...")
     headers = [
@@ -135,5 +149,19 @@ def send_daily_report():
 def send_crypto_news():
     print("[📢] Публикуем свежие новости...")
     news_items = get_crypto_news()
+    print(f"[DEBUG] Полученные новости: {news_items}")
     for news in news_items:
         asyncio.run(send_message_safe(news))
+
+# Планировщик
+schedule.every().day.at("06:00").do(send_daily_report)
+schedule.every().day.at("10:00").do(send_crypto_news)
+schedule.every().day.at("14:00").do(send_crypto_news)
+schedule.every().day.at("16:00").do(send_crypto_news)
+
+if __name__ == "__main__":
+    send_daily_report()
+    send_crypto_news()
+    while True:
+        schedule.run_pending()
+        time.sleep(60)
