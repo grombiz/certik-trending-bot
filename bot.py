@@ -1,5 +1,3 @@
-import schedule
-import time
 import random
 import requests
 import feedparser
@@ -8,7 +6,6 @@ from telegram import Bot
 from telegram.error import TelegramError
 from config import BOT_TOKEN, CHAT_ID
 
-# Инициализация Telegram-бота
 bot = Bot(token=BOT_TOKEN)
 
 # Оценка риска
@@ -37,7 +34,6 @@ def format_volume(volume):
         return f"${volume:,.0f}"
     return "?"
 
-# Исключения
 EXCLUDED_SYMBOLS = {"BTC", "ETH", "USDT", "USDC", "BUSD", "FDUSD", "TUSD", "DAI", "XRP", "WBNB", "DOGE", "WETH", "BNB", "TRX"}
 MEME_KEYWORDS = ["dog", "inu", "pepe", "meme", "elon"]
 NFT_DEFI_KEYWORDS = ["nft", "defi", "swap", "dex"]
@@ -114,7 +110,6 @@ def get_crypto_news():
             continue
     return ["⚠️ Нет новостей в RSS-источниках."]
 
-# ✅ ASYNC-отправка сообщений
 async def send_message_safe(text, parse_mode="Markdown"):
     print(f"[→] Отправка в {CHAT_ID}...")
     try:
@@ -123,7 +118,6 @@ async def send_message_safe(text, parse_mode="Markdown"):
     except TelegramError as e:
         print(f"[❌] Telegram error: {e}")
 
-# 🎯 Обёртки для запуска в синхронной среде (Render)
 def send_daily_report():
     print("[⏱] Генерация трендов Coinpaprika...")
     headers = [
@@ -143,16 +137,3 @@ def send_crypto_news():
     news_items = get_crypto_news()
     for news in news_items:
         asyncio.run(send_message_safe(news))
-
-# Планировщик
-schedule.every().day.at("06:00").do(send_daily_report)
-schedule.every().day.at("10:00").do(send_crypto_news)
-schedule.every().day.at("14:00").do(send_crypto_news)
-schedule.every().day.at("16:00").do(send_crypto_news)
-
-if __name__ == "__main__":
-    send_daily_report()
-    send_crypto_news()
-    while True:
-        schedule.run_pending()
-        time.sleep(60)
