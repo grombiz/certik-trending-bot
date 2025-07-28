@@ -12,7 +12,19 @@ from config import BOT_TOKEN, CHAT_ID
 # Инициализация Telegram-бота
 bot = Bot(token=BOT_TOKEN)
 
-# Оценка риска
+# Исключения
+EXCLUDED_SYMBOLS = {"BTC", "ETH", "USDT", "USDC", "BUSD", "FDUSD", "TUSD", "DAI", "XRP", "WBNB", "DOGE", "WETH", "BNB", "TRX"}
+MEME_KEYWORDS = ["dog", "inu", "pepe", "meme", "elon"]
+NFT_DEFI_KEYWORDS = ["nft", "defi", "swap", "dex"]
+
+NEWS_FEEDS = [
+    "https://forklog.com/feed",
+    "https://bits.media/rss/news/",
+    "https://rssexport.rbc.ru/rbcnews/cryptonews.rss"
+]
+
+# 📈 Оценка риска
+
 def assess_risk(volume, market_cap):
     if market_cap is None or volume is None:
         return "Неизвестен"
@@ -22,6 +34,7 @@ def assess_risk(volume, market_cap):
         return "Средний"
     else:
         return "Низкий"
+
 
 def format_price(price):
     if isinstance(price, (float, int)):
@@ -33,19 +46,18 @@ def format_price(price):
             return f"${price:,.2f}"
     return "?"
 
+
 def format_volume(volume):
     if isinstance(volume, (float, int)):
         return f"${volume:,.0f}"
     return "?"
 
-# Исключения
-EXCLUDED_SYMBOLS = {"BTC", "ETH", "USDT", "USDC", "BUSD", "FDUSD", "TUSD", "DAI", "XRP", "WBNB", "DOGE", "WETH", "BNB", "TRX"}
-MEME_KEYWORDS = ["dog", "inu", "pepe", "meme", "elon"]
-NFT_DEFI_KEYWORDS = ["nft", "defi", "swap", "dex"]
 
 def is_meme_or_nft(token):
     name = token.get("name", "").lower()
     return any(k in name for k in MEME_KEYWORDS + NFT_DEFI_KEYWORDS)
+
+# 🔥 Трендовые проекты
 
 def get_trending_projects():
     try:
@@ -53,13 +65,13 @@ def get_trending_projects():
         response = requests.get(url, timeout=10)
         data = response.json()
 
-        filtered_data = [
+        filtered = [
             token for token in data
             if token.get("symbol") not in EXCLUDED_SYMBOLS and not is_meme_or_nft(token)
         ]
 
         sorted_data = sorted(
-            filtered_data,
+            filtered,
             key=lambda x: x.get("quotes", {}).get("USD", {}).get("volume_24h", 0),
             reverse=True
         )[:7]
@@ -96,11 +108,7 @@ def get_trending_projects():
     except Exception as e:
         return f"⚠️ Ошибка при загрузке с Coinpaprika: {e}", ""
 
-NEWS_FEEDS = [
-    "https://forklog.com/feed",
-    "https://bits.media/rss/news/",
-    "https://rssexport.rbc.ru/rbcnews/cryptonews.rss"
-]
+# 🗞 Получение новостей
 
 def get_crypto_news():
     all_entries = []
@@ -109,20 +117,24 @@ def get_crypto_news():
         try:
             feed = feedparser.parse(url)
             if feed.entries:
-                all_entries.extend(feed.entries[:5])
+                all_entries.extend(feed.entries[:10])
         except Exception as e:
             print(f"[DEBUG] Ошибка RSS {url}: {e}")
             continue
 
     if all_entries:
-        entry = random.choice(all_entries)
-        title = str(entry.get("title", "Без названия")).strip()
-        link = str(entry.get("link", "")).strip()
+        unique_entries = {entry.link: entry for entry in all_entries}.values()
+        chosen = random.choice(list(unique_entries))
+        title = str(chosen.get("title", "Без названия")).strip()
+        link = str(chosen.get("link", "")).strip()
+        print(f"[DEBUG] Выбрана новость: {title} ({link})")
         return [f"📰 {title}\n🔗 {link}"]
     else:
+        print("[DEBUG] Нет доступных новостей.")
         return ["⚠️ Нет новостей в RSS-источниках."]
 
-# ✅ ASYNC-отправка сообщений
+# 📤 Асинхронная отправка
+
 async def send_message_safe(text, parse_mode="Markdown"):
     print(f"[→] Отправка в {CHAT_ID}: {text[:40]}...")
     try:
@@ -131,7 +143,8 @@ async def send_message_safe(text, parse_mode="Markdown"):
     except TelegramError as e:
         print(f"[❌] Telegram ошибка: {e}")
 
-# 🎯 Обёртки для запуска в синхронной среде (Render)
+# 🧠 Обёртки
+
 def send_daily_report():
     print("[⏱] Генерация трендов Coinpaprika...")
     headers = [
@@ -146,14 +159,20 @@ def send_daily_report():
     message = f"{intro}\n\n{body}\n\n{hashtags}"
     asyncio.run(send_message_safe(message))
 
+
 def send_crypto_news():
     print("[📢] Публикуем свежие новости...")
     news_items = get_crypto_news()
     print(f"[DEBUG] Полученные новости: {news_items}")
+
+    if news_items == ["⚠️ Нет новостей в RSS-источниках."]:
+        print("[❌] Новости не найдены. Пропускаем отправку.")
+        return
+
     for news in news_items:
         asyncio.run(send_message_safe(news))
 
-# Планировщик
+# ⏰ Планировщик
 schedule.every().day.at("06:00").do(send_daily_report)
 schedule.every().day.at("10:00").do(send_crypto_news)
 schedule.every().day.at("14:00").do(send_crypto_news)
