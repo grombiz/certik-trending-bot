@@ -177,6 +177,8 @@ schedule.every().day.at("06:00").do(send_daily_report)
 schedule.every().day.at("10:00").do(send_crypto_news)
 schedule.every().day.at("14:00").do(send_crypto_news)
 schedule.every().day.at("16:00").do(send_crypto_news)
+schedule.every().day.at("18:00").do(send_crypto_news)
+schedule.every().day.at("20:00").do(send_crypto_news)
 
 if __name__ == "__main__":
     send_daily_report()
